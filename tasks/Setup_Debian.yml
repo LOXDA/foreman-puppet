@@ -1,0 +1,130 @@
+---
+
+- name: Disable thp
+  shell: |
+      echo never > /sys/kernel/mm/transparent_hugepage/enabled
+      echo never > /sys/kernel/mm/transparent_hugepage/defrag
+      echo 0 > /proc/sys/vm/compaction_proactiveness
+
+# - name: Update CA Certificates
+#   apt:
+#     name: ca-certificates
+#     update_cache: yes
+
+- name: Install Puppet Repository
+  block:
+    - name: Add Public Key
+      apt_key:
+        url: http://mirror.lab.loxda.net/keyrings/puppetlabs/keys.d/puppetlabs-keyring.key
+        state: present
+    - name: Install Puppet Repo
+      apt_repository:
+        repo: deb http://mirror.lab.loxda.net/puppetlabs/ {{ ansible_distribution_release }} {{ puppet_version }}
+        state: present
+        filename: /etc/apt/sources.list.d/{{ puppet_version }}.list
+
+- name: Install Foreman Repository
+  block:
+    - name: Add Public Key
+      apt_key:
+        url: http://mirror.lab.loxda.net/keyrings/foreman/keys.d/foreman-keyring.key
+        state: present
+    - name: Install Foreman Repo
+      apt_repository:
+        repo: deb http://mirror.lab.loxda.net/foreman/ {{ ansible_distribution_release }} {{ foreman_version }}
+        state: present
+        filename: /etc/apt/sources.list.d/foreman.list
+    - name: Install Foreman Plugin Repo
+      apt_repository:
+        repo: deb http://mirror.lab.loxda.net/foreman/ plugins {{ foreman_version }}
+        state: present
+        filename: /etc/apt/sources.list.d/foreman_plugins.list
+
+- name: Download Foreman installer package
+  apt:
+    name: foreman-installer
+    force: yes
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Ensure group puppet exists
+  ansible.builtin.group:
+    name: puppet
+    state: present
+
+- name: Check if .ansible.lock exists
+  stat:
+    path: /etc/puppetlabs/puppet/ssl/.ansible.lock
+  register: lock_status
+
+- name: Clean directory
+  block:
+    - name: Clean directory
+      file:
+        path: "{{ item }}"
+        state: absent
+      with_items:
+        - /etc/puppetlabs/puppet/ssl/certs/
+        - /etc/puppetlabs/puppet/ssl/public_keys/
+        - /etc/puppetlabs/puppet/ssl/private_keys/
+        - /etc/puppetlabs/puppet/ssl/private/
+        - /etc/puppetlabs/puppet/ssl/crl.pem
+  when: not lock_status.stat.exists
+
+- name: Install and Configure Puppetserver
+  block:
+    - name: Install Puppetserver
+      vars:
+        argv_start:
+          - foreman-installer
+          - --skip-puppet-version-check
+          - --no-enable-foreman
+          - --no-enable-foreman-cli
+          - --no-enable-foreman-proxy
+          - --enable-puppet
+          - --no-enable-foreman-plugin-puppet 
+          - --no-enable-foreman-cli-puppet
+          - --puppet-server-environment-class-cache-enabled=true
+      ansible.builtin.shell: |
+        {{ argv_start | join(' ') }} \
+        {{ foreman_cmd_options | join(' ') }}
+      args:
+        executable: /bin/bash
+    - name: Create CA setup .ansible.lock
+      file:
+        path: /etc/puppetlabs/puppet/ssl/.ansible.lock
+        state: touch
+        owner: root
+        group: root
+        mode: 755
+    - name: Creating file /etc/puppetlabs/puppet/autosign.conf
+      copy:
+        dest: /etc/puppetlabs/puppet/autosign.conf
+        content: |
+          *.lab.loxda.net
+        owner: puppet
+        group: puppet
+        mode: 0664
+    - name: Restart service puppetserver
+      ansible.builtin.service:
+        name: puppetserver
+        state: restarted
+  # when: not lock_status.stat.exists
+
+- name: Install Puppet Agent
+  apt: 
+    name: puppet-agent 
+    force: yes 
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Bootstap Puppet Agent ssl
+  shell: |
+    /opt/puppetlabs/bin/puppet ssl clean --localca
+    /opt/puppetlabs/bin/puppet ssl bootstrap --server {{ groups['tfm_puppet'][0] }}
+    /opt/puppetlabs/bin/puppet config set server {{ groups['tfm_puppet'][0] }} --section main
+
+- name: Restart service puppet
+  ansible.builtin.service:
+    name: puppet
+    state: restarted
