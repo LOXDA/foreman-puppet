@@ -1,3 +1,30 @@
 ---
-# defaults file for foreman-puppet
-ansible_os_family: Debian
+# defaults file for common
+foreman_version: 3.7
+puppet_version: puppet7
+
+# install options
+foreman_cmd_options: ['--puppet-server-admin-api-whitelist=localhost --puppet-server-admin-api-whitelist={{ inventory_hostname }} --puppet-server-ca-client-whitelist=localhost --puppet-server-ca-client-whitelist={{ inventory_hostname }}']
+foreman_plugins: []
+foreman_compute: []
+foreman_proxy_plugins: []
+
+# configure options
+foreman_options: []
+foreman_plugin_options: []
+foreman_compute_options: []
+
+# --puppet-
+puppet_options:
+  server: 'true'
+
+# --puppet-server-
+puppet_server_options:
+  foreman-url: "https://{{ groups['tfm_app'][0] }}"
+  ca: 'true'
+  admin-api-whitelist: "{{ groups['tfm_proxy'][0] }}"
+  ca-client-whitelist: "{{ groups['tfm_proxy'][0] }}"
+  envs-dir: '/etc/puppetlabs/code/environments'
+
+foreman_proxy_plugin_options: []
+foreman_proxy_options: []
