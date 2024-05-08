@@ -6,10 +6,10 @@
       echo never > /sys/kernel/mm/transparent_hugepage/defrag
       echo 0 > /proc/sys/vm/compaction_proactiveness
 
-# - name: Update CA Certificates
-#   apt:
-#     name: ca-certificates
-#     update_cache: yes
+- name: Install gpg
+  apt:
+    name: gpg
+    update_cache: yes
 
 - name: Install Puppet Repository
   block:
@@ -45,7 +45,6 @@
     name: foreman-installer
     force: yes
     update_cache: yes
-    cache_valid_time: 3600
 
 - name: Ensure group puppet exists
   ansible.builtin.group:
