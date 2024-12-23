@@ -21,7 +21,7 @@
       apt_repository:
         repo: deb https://apt.puppetlabs.com/ {{ ansible_distribution_release }} {{ puppet_version }}
         state: present
-        filename: /etc/apt/sources.list.d/{{ puppet_version }}.list
+        filename: '{{ puppet_version }}'
 
 - name: Install Foreman Repository
   block:
@@ -33,18 +33,20 @@
       apt_repository:
         repo: deb https://deb.theforeman.org/ {{ ansible_distribution_release }} {{ foreman_version }}
         state: present
-        filename: /etc/apt/sources.list.d/foreman.list
+        filename: 'foreman'
     - name: Install Foreman Plugin Repo
       apt_repository:
         repo: deb https://deb.theforeman.org/ plugins {{ foreman_version }}
         state: present
-        filename: /etc/apt/sources.list.d/foreman_plugins.list
+        filename: 'foreman_plugins'
 
 - name: Download Foreman installer package
   apt:
     name: foreman-installer
     force: yes
     update_cache: yes
+    cache_valid_time: 3600
+    state: present
 
 - name: Ensure group puppet exists
   ansible.builtin.group:
@@ -111,11 +113,12 @@
   # when: not lock_status.stat.exists
 
 - name: Install Puppet Agent
-  apt: 
-    name: puppet-agent 
-    force: yes 
+  apt:
+    name: puppet-agent
+    force: yes
     update_cache: yes
     cache_valid_time: 3600
+    state: present
 
 - name: Bootstap Puppet Agent ssl
   shell: |
