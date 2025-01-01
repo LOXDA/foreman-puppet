@@ -1,15 +1,19 @@
 ---
 
+# JVM (KNOW HOW TO) USE HUGEPAGES
 # - name: Disable thp
-#   shell: |
+#   ansible.builtin.shell: |
 #       echo never > /sys/kernel/mm/transparent_hugepage/enabled
 #       echo never > /sys/kernel/mm/transparent_hugepage/defrag
 #       echo 0 > /proc/sys/vm/compaction_proactiveness
 
 - name: Install gpg
-  apt:
+  ansible.builtin.apt:
     name: gpg
-    update_cache: yes
+
+- name: "Install Git"
+  ansible.builtin.apt:
+    name: git
 
 - name: Install Puppet Repository
   block:
@@ -41,12 +45,10 @@
         filename: 'foreman_plugins'
 
 - name: Download Foreman installer package
-  apt:
+  ansible.builtin.apt:
     name: foreman-installer
-    force: yes
     update_cache: yes
-    cache_valid_time: 3600
-    state: present
+    state: latest
 
 - name: Ensure group puppet exists
   ansible.builtin.group:
@@ -110,18 +112,14 @@
       ansible.builtin.service:
         name: puppetserver
         state: restarted
-  # when: not lock_status.stat.exists
 
 - name: Install Puppet Agent
-  apt:
+  ansible.builtin.apt:
     name: puppet-agent
-    force: yes
-    update_cache: yes
-    cache_valid_time: 3600
     state: present
 
 - name: Bootstap Puppet Agent ssl
-  shell: |
+  ansible.builtin.shell: |
     /opt/puppetlabs/bin/puppet ssl clean --localca
     /opt/puppetlabs/bin/puppet ssl bootstrap --server {{ groups['tfm_puppet'][0] }}
     /opt/puppetlabs/bin/puppet config set server {{ groups['tfm_puppet'][0] }} --section main
